@@ -88,6 +88,7 @@ MaterialShader.prototype.initialize = function() {
         this.addCodeEditor();
     }else{
         this.emissive = atob(this.shader);
+        this.updateMaterial();
     }
 
     this.on('attr:textures', this.onAttributeChange, this);
