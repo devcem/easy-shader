@@ -78,7 +78,7 @@ MaterialShader.attributes.add('numbers', {
 
 MaterialShader.attributes.add('shader', {
     type : 'string',
-    default : 'Ly92ZWMzIHRleHR1cmUgPSB0ZXh0dXJlMkQodGV4dHVyZV8wLCAkVVYpLnJnYjsKCmNvbG9yLnJnYmEgPSB2ZWMzKDEuMCwgMS4wLCAxLjAsIDAuMCk7CnZlcnRleC54eXogPSB2ZWMzKDAuMCwgMC4wLCAwLjApOw=='
+    default : 'dmVjNCBnZXRDb2xvcih2ZWMyIFVWKXsKLy92ZWMzIHRleHR1cmUgPSB0ZXh0dXJlMkQodGV4dHVyZV8wLCBVVikucmdiOwpjb2xvci5yZ2IgPSB2ZWMzKDAuMCwgMS4wLCAwLjApOwpjb2xvci5hID0gMS4wOwoKcmV0dXJuIGNvbG9yOwp9Cgp2ZWMzIGdldFZlcnRleCh2ZWMzIGxvY2FsUG9zaXRpb24sIHZlYzMgd29ybGRQb3NpdGlvbiwgdmVjMiBVVil7CnZlcnRleC54eXogPSB2ZWMzKDAuMCwgMC4wLCAwLjApOwoKcmV0dXJuIHZlcnRleDsKfQ=='
 });
 
 MaterialShader.prototype.initialize = function() {
