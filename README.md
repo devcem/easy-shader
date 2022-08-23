@@ -6,6 +6,9 @@ Can be used for for different purposes like spell animations, water shader or ev
 You can clone project below or get the script from there as well.
 https://playcanvas.com/project/972118/overview/custom-material-shader
 
+## Tutorial
+Youtube link : https://www.youtube.com/watch?v=aH3JHQFnyKY
+
 ## Variables
 - UV
 - timestamp
