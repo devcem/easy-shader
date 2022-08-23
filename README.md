@@ -21,3 +21,6 @@ Youtube link : https://www.youtube.com/watch?v=aH3JHQFnyKY
 - Set textures, color or vectors directly in editor.
 - Works with all models.
 - Disabling/enabling light.
+
+## Notes
+- I also have a model component script that triggers an event when model fully loaded. You can find that script in utils folder.
