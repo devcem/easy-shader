@@ -5,6 +5,11 @@ MaterialShader.attributes.add('isDebug', {
     default : false
 });
 
+MaterialShader.attributes.add('light', {
+    type : 'boolean',
+    default : true
+});
+
 MaterialShader.attributes.add('material', {
     type : 'asset',
     assetType : 'material'
@@ -345,8 +350,12 @@ MaterialShader.prototype.updateMaterial = function() {
     this.currentMaterial.chunks.endPS+= 'alphaTest(outputColor.a);';
 
     this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = outputColor.rgb;';
-    this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = addFog(gl_FragColor.rgb);';
-    this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = gammaCorrectOutput(gl_FragColor.rgb);';
+
+    if(this.light){
+        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = mix(gl_FragColor.rgb * dDiffuseLight, dSpecularLight + dReflection.rgb * dReflection.a, dSpecularity);';
+        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = addFog(gl_FragColor.rgb);';
+        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = gammaCorrectOutput(gl_FragColor.rgb);';
+    }
 
     this.currentMaterial.update();
 };

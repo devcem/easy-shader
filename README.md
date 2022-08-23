@@ -15,3 +15,4 @@ https://playcanvas.com/project/972118/overview/custom-material-shader
 - Immediately see any changes you make on scene.
 - Set textures, color or vectors directly in editor.
 - Works with all models.
+- Disabling/enabling light.
