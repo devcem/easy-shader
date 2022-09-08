@@ -102,10 +102,27 @@ MaterialShader.prototype.initialize = function() {
     this.on('attr:numbers', this.onAttributeChange, this);
     this.on('attr:shader', this.onAttributeChange, this);
 
+    this.entity.on('MaterialShader:Set', this.setVariable, this);
+
     this.on('state', this.onStateChange, this);
 
     this.entity.on('Model:Loaded', this.onModelLoaded, this);
     this.app.on('MaterialShader:Reset', this.onStateChange, this);
+};
+
+MaterialShader.prototype.setVariable = function(key, value){
+    for(var index in this.parameters){
+        var parameter = this.parameters[index];
+
+        this.currentMaterial.setParameter(
+            parameter.name,
+            parameter.resource
+        );
+
+        if(parameter.name == key){
+            this.parameters[index].resource = value;
+        }
+    }
 };
 
 MaterialShader.prototype.onModelLoaded = function(state){
