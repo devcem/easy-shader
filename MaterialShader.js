@@ -1,8 +1,29 @@
 var MaterialShader = pc.createScript('materialShader');
 
+MaterialShader.attributes.add("inEditor", {
+    type: "boolean",
+    default: true,
+    title: "In Editor",
+});
+
 MaterialShader.attributes.add('isDebug', {
     type : 'boolean',
     default : false
+});
+
+MaterialShader.attributes.add('isStatic', {
+    type : 'boolean',
+    default : false
+});
+
+MaterialShader.attributes.add('color', {
+    type : 'boolean',
+    default : true
+});
+
+MaterialShader.attributes.add('transform', {
+    type : 'boolean',
+    default : true
 });
 
 MaterialShader.attributes.add('light', {
@@ -81,12 +102,45 @@ MaterialShader.attributes.add('numbers', {
     array : true
 });
 
+MaterialShader.attributes.add('curves', {
+    type : 'json',
+    schema : [
+        {
+            name : 'name',
+            type : 'string',
+            default : 'curve_0'
+        },
+        {
+            name : 'curve',
+            type : 'curve',
+            curves : ['x', 'y', 'z']
+        },
+        {
+            name : 'speed',
+            type : 'number',
+            default : 1
+        }
+    ],
+    array : true
+});
+
+MaterialShader.attributes.add('billboard', {
+    type : 'boolean',
+    default : false
+});
+
+MaterialShader.attributes.add('vertexSet', {
+    type : 'boolean',
+    default : false
+});
+
 MaterialShader.attributes.add('shader', {
     type : 'string',
-    default : 'dmVjNCBnZXRDb2xvcih2ZWMyIFVWKXsKLy92ZWMzIHRleHR1cmUgPSB0ZXh0dXJlMkQodGV4dHVyZV8wLCBVVikucmdiOwpjb2xvci5yZ2IgPSB2ZWMzKDAuMCwgMS4wLCAwLjApOwpjb2xvci5hID0gMS4wOwoKcmV0dXJuIGNvbG9yOwp9Cgp2ZWMzIGdldFZlcnRleCh2ZWMzIGxvY2FsUG9zaXRpb24sIHZlYzMgd29ybGRQb3NpdGlvbiwgdmVjMiBVVil7CnZlcnRleC54eXogPSB2ZWMzKDAuMCwgMC4wLCAwLjApOwoKcmV0dXJuIHZlcnRleDsKfQ=='
+    default : 'dmVjNCBnZXRDb2xvcih2ZWMyIFVWKXsKLy92ZWMzIHRleHR1cmVfY29sb3IgPSB0ZXh0dXJlMkQodGV4dHVyZV8wLCBVVikucmdiOwpjb2xvci5yZ2IgPSB2ZWMzKDAuMCwgMS4wLCAwLjApOwpjb2xvci5hID0gMS4wOwoKcmV0dXJuIGNvbG9yOwp9Cgp2ZWMzIGdldFZlcnRleCh2ZWMzIGxvY2FsUG9zaXRpb24sIHZlYzMgd29ybGRQb3NpdGlvbiwgdmVjMiBVVil7CnZlcnRleC54eXogPSB2ZWMzKDAuMCwgMC4wLCAwLjApOwoKcmV0dXJuIHZlcnRleDsKfQ=='
 });
 
 MaterialShader.prototype.initialize = function() {
+    this.once = false;
     this.reset();
 
     if(this.isDebug){
@@ -100,6 +154,7 @@ MaterialShader.prototype.initialize = function() {
     this.on('attr:colors', this.onAttributeChange, this);
     this.on('attr:vectors', this.onAttributeChange, this);
     this.on('attr:numbers', this.onAttributeChange, this);
+    this.on('attr:curves', this.onAttributeChange, this);
     this.on('attr:shader', this.onAttributeChange, this);
 
     this.entity.on('MaterialShader:Set', this.setVariable, this);
@@ -121,6 +176,22 @@ MaterialShader.prototype.setVariable = function(key, value){
 
         if(parameter.name == key){
             this.parameters[index].resource = value;
+        }
+    }
+};
+
+MaterialShader.prototype.updateDynamicVariables = function(){
+    for(var index in this.curves){
+        var curve = this.curves[index];
+
+        for(var parameterIndex in this.parameters){
+            var parameter = this.parameters[parameterIndex];
+            
+            if(parameter.name == curve.name){
+                var curveValue = curve.curve.value((this.timestamp * curve.speed) % 1.0);
+
+                parameter.resource = [curveValue[0], curveValue[1], curveValue[2]];
+            }
         }
     }
 };
@@ -156,6 +227,7 @@ MaterialShader.prototype.addCodeEditor = function(){
         saveButton.style.top  = '340px';
         saveButton.style.width  = '100px';
         saveButton.style.height  = '40px';
+        saveButton.style.zIndex = '5000';
         saveButton.style.background = 'rgba(0, 0, 0, 0.5)';
         saveButton.style.color = '#fff';
         saveButton.textContent = 'Copy';
@@ -172,6 +244,7 @@ MaterialShader.prototype.addCodeEditor = function(){
         textarea.style.width  = '400px';
         textarea.style.height = '300px';
         textarea.style.padding = '10px';
+        textarea.style.zIndex = '5000';
         textarea.style.background = 'rgba(0, 0, 0, 0.5)';
         textarea.style.outline = 'none';
         textarea.style.color = 'white';
@@ -255,6 +328,11 @@ MaterialShader.prototype.addParameter = function(array, type) {
             resource = item.vector.data;
         }
 
+        if(array == 'curves'){
+            var curveValue = item.curve.value(this.timestamp * item.speed);
+            resource = [curveValue[0], curveValue[1], curveValue[2]];
+        }
+
         if(array == 'numbers'){
             resource = item.number;
         }
@@ -275,6 +353,8 @@ MaterialShader.prototype.generateShaderOutput = function() {
     output+= this.addParameter('colors', 'vec4');
     output+= this.addParameter('vectors', 'vec2');
     output+= this.addParameter('numbers', 'float');
+    output+= this.addParameter('curves', 'vec3');
+
     output+= this.line('uniform float timestamp;');
     output+= this.line('uniform float alpha_ref;');
 
@@ -315,7 +395,10 @@ MaterialShader.prototype.generateTransformOutput = function() {
     output+= this.addParameter('colors', 'vec4');
     output+= this.addParameter('vectors', 'vec2');
     output+= this.addParameter('numbers', 'float');
+    output+= this.addParameter('curves', 'vec3');
+
     output+= this.line('uniform float timestamp;');
+    output+= this.line('uniform mat4 matrix_viewInverse;');
 
     output+= this.line('mat4 getModelMatrix() {');
     output+= this.line('return matrix_model;');
@@ -332,7 +415,19 @@ MaterialShader.prototype.generateTransformOutput = function() {
     output+= this.line('vec4 posW   = dModelMatrix * vec4(localPos, 1.0);');
     output+= this.line('vec2 UV     = localPos.xy * 0.5 + vec2(0.5, 0.5);');
 
-    output+= this.line('posW.xyz+= getVertex(localPos, posW.xyz, UV);');
+    if(this.billboard){
+        output+= this.line('vec3 CameraUp_worldspace = matrix_viewInverse[1].xyz;');
+        output+= this.line('vec3 CameraRight_worldspace = matrix_viewInverse[0].xyz;');
+        output+= this.line('vec3 particleCenter_wordspace = ( dModelMatrix * vec4(0.0, 0.0, 0.0, 1.0) ).xyz;');
+        output+= this.line('posW.xyz = particleCenter_wordspace.xyz + CameraRight_worldspace * localPos.x + CameraUp_worldspace * localPos.y;');
+    }
+
+    if(this.vertexSet){
+        output+= this.line('posW.xyz = getFullVertex(localPos, posW.xyz, UV, dModelMatrix, matrix_viewInverse);');
+    }else{
+        output+= this.line('posW.xyz+= getVertex(localPos, posW.xyz, UV);');
+    }
+    
     output+= this.line('dPositionW = posW.xyz;');
 
     output+= this.line('vec4 outputPosition = matrix_viewProjection * posW;');
@@ -354,24 +449,31 @@ MaterialShader.prototype.updateMaterial = function() {
 
     this.currentMaterial = this.material.resource;
 
-    this.currentMaterial.chunks.diffusePS  = this.generateShaderOutput();
-    this.currentMaterial.chunks.opacityPS  = ' ';
-    this.currentMaterial.chunks.emissivePS = ' ';
-    
-    this.currentMaterial.chunks.alphaTestPS = ' ';
+    if(this.transform){
+        this.currentMaterial.chunks.transformVS = this.generateTransformOutput();
+    }
 
-    this.currentMaterial.chunks.transformVS = this.generateTransformOutput();
+    if(this.color){
+        this.currentMaterial.chunks.diffusePS  = this.generateShaderOutput();
+        this.currentMaterial.chunks.opacityPS  = ' ';
+        this.currentMaterial.chunks.emissivePS = ' ';
+        
+        this.currentMaterial.chunks.alphaTestPS = ' ';
 
-    this.currentMaterial.chunks.endPS = 'vec4 outputColor = getColor(vUv0);';
-    this.currentMaterial.chunks.endPS+= 'dAlpha = outputColor.a;';
-    this.currentMaterial.chunks.endPS+= 'alphaTest(outputColor.a);';
+        this.currentMaterial.chunks.endPS = 'vec4 outputColor = getColor(vUv0);';
+        this.currentMaterial.chunks.endPS+= 'dAlpha = outputColor.a;';
+        //this.currentMaterial.chunks.endPS+= 'alphaTest(outputColor.a);';
+        this.currentMaterial.chunks.endPS+= 'if (dAlpha < 0.15){ discard; }';
+        
 
-    this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = outputColor.rgb;';
+        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = outputColor.rgb;';
 
-    if(this.light){
-        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = mix(gl_FragColor.rgb * dDiffuseLight, dSpecularLight + dReflection.rgb * dReflection.a, dSpecularity);';
-        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = addFog(gl_FragColor.rgb);';
-        this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = gammaCorrectOutput(gl_FragColor.rgb);';
+        if(this.light){
+            this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = mix(gl_FragColor.rgb * dDiffuseLight, dSpecularLight + dReflection.rgb * dReflection.a, dSpecularity);';
+            this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = addFog(gl_FragColor.rgb);';
+            this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = toneMap(gl_FragColor.rgb);';
+            this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = gammaCorrectOutput(gl_FragColor.rgb);';
+        }
     }
 
     this.currentMaterial.update();
@@ -379,19 +481,27 @@ MaterialShader.prototype.updateMaterial = function() {
 
 MaterialShader.prototype.update = function(dt) {
     if(this.currentMaterial){
-        for(var index in this.parameters){
-            var parameter = this.parameters[index];
+        this.updateDynamicVariables();
 
-            this.currentMaterial.setParameter(
-                parameter.name,
-                parameter.resource
-            );
+        if(!this.isStatic || !this.once){
+            for(var index in this.parameters){
+                var parameter = this.parameters[index];
+                
+                this.currentMaterial.setParameter(
+                    parameter.name,
+                    parameter.resource
+                );
+            }
+
+            this.once = true;
         }
 
         this.currentMaterial.setParameter(
             'timestamp',
             this.timestamp
         );
+
+        this.currentMaterial.update();
     }
     
     this.timestamp+=dt;
