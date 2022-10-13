@@ -140,6 +140,8 @@ MaterialShader.attributes.add('shader', {
 });
 
 MaterialShader.prototype.initialize = function() {
+    var self = this;
+    
     this.once = false;
     this.reset();
 
@@ -163,6 +165,52 @@ MaterialShader.prototype.initialize = function() {
 
     this.entity.on('Model:Loaded', this.onModelLoaded, this);
     this.app.on('MaterialShader:Reset', this.onStateChange, this);
+
+    //wait for the material load
+    if(this.material){
+        //model + material + textures
+        this.totalAssets = 1 + 1 + this.textures.length;
+        this.loaded = 0;
+
+        this.loadAllAssets();
+    }
+};
+
+MaterialShader.prototype.loadAllAssets = function(){
+    var self = this;
+    var modelAssetId = this.entity.model.asset;
+    var modelAsset = this.app.assets.get(modelAssetId);
+
+    modelAsset.ready(function(){
+        self.loaded++;
+        self.isLoaded();
+    });
+
+    this.app.assets.load(modelAsset);
+
+    this.material.ready(function(){
+        self.loaded++;
+        self.isLoaded();
+    });
+
+    this.app.assets.load(this.material);
+
+    for(var index in this.textures){
+        var texture = this.textures[index];
+
+        texture.texture.ready(function(){
+            self.loaded++;
+            self.isLoaded();
+        });
+
+        this.app.assets.load(texture.texture);
+    }
+};
+
+MaterialShader.prototype.isLoaded = function(){
+    if(this.loaded >= this.totalAssets){
+        this.updateMaterial();
+    }
 };
 
 MaterialShader.prototype.setVariable = function(key, value){
@@ -438,8 +486,6 @@ MaterialShader.prototype.generateTransformOutput = function() {
     output+= this.line('vec3 getWorldPosition() {');
     output+= this.line('return dPositionW;');
     output+= this.line('}');
-    
-
 
     return output;
 };
@@ -448,6 +494,10 @@ MaterialShader.prototype.updateMaterial = function() {
     this.timestamp = 0.0;
 
     this.currentMaterial = this.material.resource;
+
+    if(!this.currentMaterial){
+        return false;
+    }
 
     if(this.transform){
         this.currentMaterial.chunks.transformVS = this.generateTransformOutput();
