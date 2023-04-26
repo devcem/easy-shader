@@ -16,6 +16,11 @@ MaterialShader.attributes.add('isStatic', {
     default : false
 });
 
+MaterialShader.attributes.add('isBatched', {
+    type : 'boolean',
+    default : false
+});
+
 MaterialShader.attributes.add('color', {
     type : 'boolean',
     default : true
@@ -134,6 +139,11 @@ MaterialShader.attributes.add('vertexSet', {
     default : false
 });
 
+MaterialShader.attributes.add('alphaRef', {
+    type : 'number',
+    default : 0.15
+});
+
 MaterialShader.attributes.add('shader', {
     type : 'string',
     default : 'dmVjNCBnZXRDb2xvcih2ZWMyIFVWKXsKLy92ZWMzIHRleHR1cmVfY29sb3IgPSB0ZXh0dXJlMkQodGV4dHVyZV8wLCBVVikucmdiOwpjb2xvci5yZ2IgPSB2ZWMzKDAuMCwgMS4wLCAwLjApOwpjb2xvci5hID0gMS4wOwoKcmV0dXJuIGNvbG9yOwp9Cgp2ZWMzIGdldFZlcnRleCh2ZWMzIGxvY2FsUG9zaXRpb24sIHZlYzMgd29ybGRQb3NpdGlvbiwgdmVjMiBVVil7CnZlcnRleC54eXogPSB2ZWMzKDAuMCwgMC4wLCAwLjApOwoKcmV0dXJuIHZlcnRleDsKfQ=='
@@ -181,12 +191,17 @@ MaterialShader.prototype.loadAllAssets = function(){
     var modelAssetId = this.entity.model.asset;
     var modelAsset = this.app.assets.get(modelAssetId);
 
-    modelAsset.ready(function(){
-        self.loaded++;
-        self.isLoaded();
-    });
+    if(modelAsset){
+        modelAsset.ready(function(){
+            self.loaded++;
+            self.isLoaded();
+        });
 
-    this.app.assets.load(modelAsset);
+        this.app.assets.load(modelAsset);
+    }else{
+        this.loaded++;
+        this.isLoaded();
+    }
 
     this.material.ready(function(){
         self.loaded++;
@@ -209,7 +224,16 @@ MaterialShader.prototype.loadAllAssets = function(){
 
 MaterialShader.prototype.isLoaded = function(){
     if(this.loaded >= this.totalAssets){
-        this.updateMaterial();
+        if(this.isBatched){
+            setTimeout(function(self){
+                self.getMaterialByBatch();
+                self.updateMaterial();
+            }, 100, this);
+        }else{
+            this.currentMaterial = this.material.resource;
+            //this.currentMaterial.chunks.APIVersion = pc.CHUNKAPI_1_55;
+            this.updateMaterial();
+        }
     }
 };
 
@@ -445,11 +469,22 @@ MaterialShader.prototype.generateTransformOutput = function() {
     output+= this.addParameter('numbers', 'float');
     output+= this.addParameter('curves', 'vec3');
 
+    if(this.isBatched){
+        output+= this.line('#define DYNAMICBATCH');
+    }
+    
     output+= this.line('uniform float timestamp;');
     output+= this.line('uniform mat4 matrix_viewInverse;');
 
     output+= this.line('mat4 getModelMatrix() {');
+    //output+= this.line('return matrix_model;');
+    output+= this.line('#ifdef DYNAMICBATCH');
+    output+= this.line('return getBoneMatrix(vertex_boneIndices);');
+    output+= this.line('#elif defined(INSTANCING)');
+    output+= this.line('return mat4(instance_line1, instance_line2, instance_line3, instance_line4);');
+    output+= this.line('#else');
     output+= this.line('return matrix_model;');
+    output+= this.line('#endif');
     output+= this.line('}');
 
     output+= this.line('vec4 color  = vec4(0.0);');
@@ -490,10 +525,20 @@ MaterialShader.prototype.generateTransformOutput = function() {
     return output;
 };
 
+MaterialShader.prototype.getMaterialByBatch = function() {
+    var batchGroupId = this.entity.model.batchGroupId;
+    var batches = this.app.batcher.getBatches(batchGroupId);
+
+    for(var index in batches){
+        var batch = batches[index];
+        var material = batch.meshInstance.material;
+
+        this.currentMaterial = material;
+    }
+};
+
 MaterialShader.prototype.updateMaterial = function() {
     this.timestamp = 0.0;
-
-    this.currentMaterial = this.material.resource;
 
     if(!this.currentMaterial){
         return false;
@@ -513,10 +558,11 @@ MaterialShader.prototype.updateMaterial = function() {
         this.currentMaterial.chunks.endPS = 'vec4 outputColor = getColor(vUv0);';
         this.currentMaterial.chunks.endPS+= 'dAlpha = outputColor.a;';
         //this.currentMaterial.chunks.endPS+= 'alphaTest(outputColor.a);';
-        this.currentMaterial.chunks.endPS+= 'if (dAlpha < 0.15){ discard; }';
+        this.currentMaterial.chunks.endPS+= 'if (dAlpha < ' + this.alphaRef + '){ discard; }';
         
 
         this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = outputColor.rgb;';
+        this.currentMaterial.chunks.outputAlphaPS = ' ';
 
         if(this.light){
             this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = mix(gl_FragColor.rgb * dDiffuseLight, dSpecularLight + dReflection.rgb * dReflection.a, dSpecularity);';
@@ -524,6 +570,8 @@ MaterialShader.prototype.updateMaterial = function() {
             this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = toneMap(gl_FragColor.rgb);';
             this.currentMaterial.chunks.endPS+= 'gl_FragColor.rgb = gammaCorrectOutput(gl_FragColor.rgb);';
         }
+
+        this.currentMaterial.chunks.endPS+= 'gl_FragColor.a = dAlpha;';
     }
 
     this.currentMaterial.update();
